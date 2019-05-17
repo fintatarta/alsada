@@ -3,7 +3,7 @@ with Interfaces.C.Pointers;
 
 with System;
 --
--- Small package for an "Adish" interface to ALSA
+-- Small package for an "Adish" interface to ALSA.
 --
 
 package Alsa is
