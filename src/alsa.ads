@@ -2,7 +2,9 @@ with Ada.Strings.Unbounded;   use Ada.Strings.Unbounded;
 with Interfaces.C.Pointers;
 
 with System;
-
+--
+-- Small package for an "Adish" interface to ALSA
+--
 
 package Alsa is
    use type Interfaces.C.Int;
