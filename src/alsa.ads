@@ -1,13 +1,16 @@
 with Ada.Strings.Unbounded;   use Ada.Strings.Unbounded;
-with Interfaces.C.Pointers;
+with Interfaces.C;
 
 with System;
 --
--- Small package for an "Adish" interface to ALSA.
+-- Small package for an "Adish" interface to ALSA.  The interface follows
+-- quite closely the original ALSA interface, but with a more Ada-like
+-- flavor.
 --
 
-package Alsa is
+package Alsa with SPARK_Mode => On is
    use type Interfaces.C.Int;
+   use type Interfaces.C.Unsigned;
 
    type Alsa_Device is private;
    -- Private type representing an audio device
@@ -34,26 +37,27 @@ package Alsa is
    type Sampling_Rate is new Interfaces.C.Unsigned;
    type Channel_Count is new Interfaces.C.Unsigned;
 
+
    type Access_Mode is
-     (Mmap_Interleaved,
-      Mmap_Not_Interleaved,
-      Rw_Interleaved,
-      Rw_Not_Interleaved)
-     with Convention => C;
+         (Mmap_Interleaved,
+          Mmap_Not_Interleaved,
+          Rw_Interleaved,
+          Rw_Not_Interleaved)
+         with Convention => C;
    -- For PCM devices, how the data are read/written.  MMAP means to use
    -- memory mapping, while RW is for "read/write"-like access (the only
    -- one currently supported by this package).  Interleaved/Non-interleaved
    -- specify how samples from different channels are stored in memory
 
    for Access_Mode use
-     (Mmap_Interleaved     => 0 ,
-      Mmap_Not_Interleaved => 1,
-      Rw_Interleaved       => 3,
-      Rw_Not_Interleaved   => 4);
+         (Mmap_Interleaved     => 0 ,
+          Mmap_Not_Interleaved => 1,
+          Rw_Interleaved       => 3,
+          Rw_Not_Interleaved   => 4);
 
 
    type Stream_Direction is (Playback, Capture)
-     with Convention => C;
+         with Convention => C;
 
    for Stream_Direction use (Playback => 0, Capture => 1);
 
@@ -61,123 +65,129 @@ package Alsa is
    Non_Blocking : constant Open_Mode;
    Async        : constant Open_Mode;
    Default      : constant Open_Mode;
-   -- Used in Open.  The different modes are not mutually exclusive
+   -- Used in Open.  The different modes are not mutually exclusive.  See
+   -- (the scarce) ALSA documentation for an explanation.
 
    function "and" (X, Y : Open_Mode) return Open_Mode;
    -- Operator to combine different open modes
 
+   -- ALSA devices can produce data in many formats.  The following
+   -- enumerative type names all the available formats.  Some of them
+   -- are pretty obscure (to me)...
    type Extended_Data_Format is
-     (Unknown,
-      Signed_8,
-      Unsigned_8,
-      Signed_16_Little_Endian,
-      Signed_16_Big_Endian,
-      Unsigned_16_Little_Endian,
-      Unsigned_16_Big_Endian,
-      Signed_24_Little_Endian,
-      Signed_24_Big_Endian,
-      Unsigned_24_Little_Endian,
-      Unsigned_24_Big_Endian,
-      Signed_32_Little_Endian,
-      Signed_32_Big_Endian,
-      Unsigned_32_Little_Endian,
-      Unsigned_32_Big_Endian,
-      Float_Little_Endian,
-      Float_Big_Endian,
-      Float_64_Little_Endian,
-      Float_64_Big_Endian,
-      Iec958_Subframe_Little_Endian,
-      Iec958_Subframe_Big_Endian,
-      Mu_Law,
-      A_Law,
-      Ima_Adpcm,
-      Mpeg,
-      Gsm,
-      Signed_20_Little_Endian,
-      Signed_20_Big_Endian,
-      Unsigned_20_Little_Endian,
-      Unsigned_20_Big_Endian,
-      Special,
-      Signed_24_3byte_Little_Endian,
-      Signed_24_3byte_Big_Endian,
-      Unsigned_24_3byte_Little_Endian,
-      Unsigned_24_3byte_Big_Endian,
-      Signed_20_3byte_Little_Endian,
-      Signed_20_3byte_Big_Endian,
-      Unsigned_20_3byte_Little_Endian,
-      Unsigned_20_3byte_Big_Endian,
-      Signed_18_3byte_Little_Endian,
-      Signed_18_3byte_Big_Endian,
-      Unsigned_18_3byte_Little_Endian,
-      Unsigned_18_3byte_Big_Endian,
-      G723_24,
-      G723_24_1b,
-      G723_40,
-      G723_40_1b,
-      Dsd_U8,
-      Dsd_U16_Little_Endian,
-      Dsd_U32_Little_Endian,
-      Dsd_U16_Big_Endian,
-      Dsd_U32_Big_Endian)
-     with Convention => C;
+         (Unknown,
+          Signed_8,
+          Unsigned_8,
+          Signed_16_Little_Endian,
+          Signed_16_Big_Endian,
+          Unsigned_16_Little_Endian,
+          Unsigned_16_Big_Endian,
+          Signed_24_Little_Endian,
+          Signed_24_Big_Endian,
+          Unsigned_24_Little_Endian,
+          Unsigned_24_Big_Endian,
+          Signed_32_Little_Endian,
+          Signed_32_Big_Endian,
+          Unsigned_32_Little_Endian,
+          Unsigned_32_Big_Endian,
+          Float_Little_Endian,
+          Float_Big_Endian,
+          Float_64_Little_Endian,
+          Float_64_Big_Endian,
+          Iec958_Subframe_Little_Endian,
+          Iec958_Subframe_Big_Endian,
+          Mu_Law,
+          A_Law,
+          Ima_Adpcm,
+          Mpeg,
+          Gsm,
+          Signed_20_Little_Endian,
+          Signed_20_Big_Endian,
+          Unsigned_20_Little_Endian,
+          Unsigned_20_Big_Endian,
+          Special,
+          Signed_24_3byte_Little_Endian,
+          Signed_24_3byte_Big_Endian,
+          Unsigned_24_3byte_Little_Endian,
+          Unsigned_24_3byte_Big_Endian,
+          Signed_20_3byte_Little_Endian,
+          Signed_20_3byte_Big_Endian,
+          Unsigned_20_3byte_Little_Endian,
+          Unsigned_20_3byte_Big_Endian,
+          Signed_18_3byte_Little_Endian,
+          Signed_18_3byte_Big_Endian,
+          Unsigned_18_3byte_Little_Endian,
+          Unsigned_18_3byte_Big_Endian,
+          G723_24,
+          G723_24_1b,
+          G723_40,
+          G723_40_1b,
+          Dsd_U8,
+          Dsd_U16_Little_Endian,
+          Dsd_U32_Little_Endian,
+          Dsd_U16_Big_Endian,
+          Dsd_U32_Big_Endian)
+         with Convention => C;
 
    for Extended_Data_Format use
-     (Unknown                         => -1,
-      Signed_8                        => 0,
-      Unsigned_8                      => 1,
-      Signed_16_Little_Endian         => 2,
-      Signed_16_Big_Endian            => 3,
-      Unsigned_16_Little_Endian       => 4,
-      Unsigned_16_Big_Endian          => 5,
-      Signed_24_Little_Endian         => 6,
-      Signed_24_Big_Endian            => 7,
-      Unsigned_24_Little_Endian       => 8,
-      Unsigned_24_Big_Endian          => 9,
-      Signed_32_Little_Endian         => 10,
-      Signed_32_Big_Endian            => 11,
-      Unsigned_32_Little_Endian       => 12,
-      Unsigned_32_Big_Endian          => 13,
-      Float_Little_Endian             => 14,
-      Float_Big_Endian                => 15,
-      Float_64_Little_Endian          => 16,
-      Float_64_Big_Endian             => 17,
-      Iec958_Subframe_Little_Endian   => 18,
-      Iec958_Subframe_Big_Endian      => 19,
-      Mu_Law                          => 20,
-      A_Law                           => 21,
-      Ima_Adpcm                       => 22,
-      Mpeg                            => 23,
-      Gsm                             => 24,
-      Signed_20_Little_Endian         => 25,
-      Signed_20_Big_Endian            => 26,
-      Unsigned_20_Little_Endian       => 27,
-      Unsigned_20_Big_Endian          => 28,
-      Special                         => 31,
-      Signed_24_3byte_Little_Endian   => 32,
-      Signed_24_3byte_Big_Endian      => 33,
-      Unsigned_24_3byte_Little_Endian => 34,
-      Unsigned_24_3byte_Big_Endian    => 35,
-      Signed_20_3byte_Little_Endian   => 36,
-      Signed_20_3byte_Big_Endian      => 37,
-      Unsigned_20_3byte_Little_Endian => 38,
-      Unsigned_20_3byte_Big_Endian    => 39,
-      Signed_18_3byte_Little_Endian   => 40,
-      Signed_18_3byte_Big_Endian      => 41,
-      Unsigned_18_3byte_Little_Endian => 42,
-      Unsigned_18_3byte_Big_Endian    => 43,
-      G723_24                         => 44,
-      G723_24_1b                      => 45,
-      G723_40                         => 46,
-      G723_40_1b                      => 47,
-      Dsd_U8                          => 48,
-      Dsd_U16_Little_Endian           => 49,
-      Dsd_U32_Little_Endian           => 50,
-      Dsd_U16_Big_Endian              => 51,
-      Dsd_U32_Big_Endian              => 52);
+         (Unknown                         => -1,
+          Signed_8                        => 0,
+          Unsigned_8                      => 1,
+          Signed_16_Little_Endian         => 2,
+          Signed_16_Big_Endian            => 3,
+          Unsigned_16_Little_Endian       => 4,
+          Unsigned_16_Big_Endian          => 5,
+          Signed_24_Little_Endian         => 6,
+          Signed_24_Big_Endian            => 7,
+          Unsigned_24_Little_Endian       => 8,
+          Unsigned_24_Big_Endian          => 9,
+          Signed_32_Little_Endian         => 10,
+          Signed_32_Big_Endian            => 11,
+          Unsigned_32_Little_Endian       => 12,
+          Unsigned_32_Big_Endian          => 13,
+          Float_Little_Endian             => 14,
+          Float_Big_Endian                => 15,
+          Float_64_Little_Endian          => 16,
+          Float_64_Big_Endian             => 17,
+          Iec958_Subframe_Little_Endian   => 18,
+          Iec958_Subframe_Big_Endian      => 19,
+          Mu_Law                          => 20,
+          A_Law                           => 21,
+          Ima_Adpcm                       => 22,
+          Mpeg                            => 23,
+          Gsm                             => 24,
+          Signed_20_Little_Endian         => 25,
+          Signed_20_Big_Endian            => 26,
+          Unsigned_20_Little_Endian       => 27,
+          Unsigned_20_Big_Endian          => 28,
+          Special                         => 31,
+          Signed_24_3byte_Little_Endian   => 32,
+          Signed_24_3byte_Big_Endian      => 33,
+          Unsigned_24_3byte_Little_Endian => 34,
+          Unsigned_24_3byte_Big_Endian    => 35,
+          Signed_20_3byte_Little_Endian   => 36,
+          Signed_20_3byte_Big_Endian      => 37,
+          Unsigned_20_3byte_Little_Endian => 38,
+          Unsigned_20_3byte_Big_Endian    => 39,
+          Signed_18_3byte_Little_Endian   => 40,
+          Signed_18_3byte_Big_Endian      => 41,
+          Unsigned_18_3byte_Little_Endian => 42,
+          Unsigned_18_3byte_Big_Endian    => 43,
+          G723_24                         => 44,
+          G723_24_1b                      => 45,
+          G723_40                         => 46,
+          G723_40_1b                      => 47,
+          Dsd_U8                          => 48,
+          Dsd_U16_Little_Endian           => 49,
+          Dsd_U32_Little_Endian           => 50,
+          Dsd_U16_Big_Endian              => 51,
+          Dsd_U32_Big_Endian              => 52);
 
    -- Size in octects of the different data formats.  The size
    -- of some format is not clear, or maybe it makes no sense
-   -- at all; in these cases a placeholder of '0' has been used
+   -- at all; in these cases a placeholder of '0' has been used.
+   -- This is used by Read in order to check the consistency of
+   -- data size.
    Size_Of : constant array (Extended_Data_Format) of Natural :=
                (Unknown                         => 0,
                 Signed_8                        => 1,
@@ -234,7 +244,7 @@ package Alsa is
 
 
    subtype Data_Format is
-     Extended_Data_Format
+         Extended_Data_Format
    range Extended_Data_Format'Succ (Unknown) .. Extended_Data_Format'Last;
 
    Signed_16_Native   : constant Data_Format := Signed_16_Little_Endian;
@@ -251,105 +261,103 @@ package Alsa is
 
    type Format_Mask is array (Data_Format) of Boolean;
 
-
-
-
-   function Status (Item : Alsa_Device) return Device_Status;
+   function Status (Item : Alsa_Device) return Device_Status
+         with Annotate => (Gnatprove, Terminating);
    -- Return the current device status.  Useful in pre/post condition
 
    procedure Open (Dev       : in out Alsa_Device;
                    Name      : Device_Name;
                    Direction : Stream_Direction;
                    Mode      : Open_Mode := Default)
-     with
-       Pre => Status (Dev) = Closed,
-     Post => Status (Dev) = Open;
+         with
+               Pre => Status (Dev) = Closed,
+         Post => Status (Dev) = Open;
    -- Open a device and associate it with the specified Name, setting
    -- also if the device is opened for input (Direction = Capture) or
    -- output (Direction = Playback)
 
-   function Max_Channels (Dev : Alsa_Device) return Positive
-     with
-       Pre => Status (Dev) /= Closed;
+   function Max_Channels (Dev : Alsa_Device) return Channel_Count
+         with
+               Pre => Status (Dev) /= Closed;
 
-   function Min_Channels (Dev : Alsa_Device) return Positive
-     with
-       Pre => Status (Dev) /= Closed;
+   function Min_Channels (Dev : Alsa_Device) return Channel_Count
+         with Pre => Status (Dev) /= Closed,
+         Annotate => (Gnatprove, Terminating);
 
-   function Rate_Min (Dev : Alsa_Device) return Positive
-     with
-       Pre => Status (Dev) /= Closed;
+   function Rate_Min (Dev : Alsa_Device) return Sampling_Rate
+         with Pre => Status (Dev) /= Closed,
+         Annotate => (Gnatprove, Terminating);
 
-   function Rate_Max (Dev : Alsa_Device) return Positive
-     with
-       Pre => Status (Dev) /= Closed;
+   function Rate_Max (Dev : Alsa_Device) return Sampling_Rate
+         with
+               Pre => Status (Dev) /= Closed;
 
-   function Sample_Per_Seq (Dev : Alsa_Device) return Positive
-   is (Rate_Min (Dev) * Min_Channels (Dev))
-     with Pre => Status (Dev) /= Closed;
+   function Sample_Per_Seq (Dev : Alsa_Device) return Long_Integer
+   is (Long_Integer (Rate_Min (Dev)) * Long_Integer (Min_Channels (Dev)))
+         with Pre => Status (Dev) /= Closed;
 
 
    function Formats (Dev : Alsa_Device) return Format_Mask
-     with
-       Pre => Status (Dev) /= Closed;
+         with
+               Pre => Status (Dev) /= Closed;
 
    procedure Close (Dev : in out Alsa_Device)
-     with
-       Pre => Status (Dev) /= Closed,
-     Post => Status (Dev) = Closed;
+         with
+               Pre => Status (Dev) /= Closed,
+         Post => Status (Dev) = Closed;
 
    procedure Set_Rate (Dev  : in out Alsa_Device;
                        Rate : in out Sampling_Rate)
-     with Pre => Status (Dev) = Open,
-     Post => Status (Dev) = Open;
+         with Pre => Status (Dev) = Open,
+         Post => Status (Dev) = Open;
 
    procedure Set_Access (Dev  : Alsa_Device;
                          Mode : Access_Mode)
-     with Pre => Status (Dev) = Open,
-     Post => Status (Dev) = Open;
+         with Pre => Status (Dev) = Open,
+         Post => Status (Dev) = Open;
 
 
 
    procedure Set_N_Channels (Dev        : Alsa_Device;
                              N_Channels : in out Channel_Count)
-     with Pre => Status (Dev) = Open,
-     Post => Status (Dev) = Open;
+         with Pre => Status (Dev) = Open,
+         Post => Status (Dev) = Open;
 
    procedure Set_Format (Dev : Alsa_Device;
                          Fmt : Data_Format)
-     with Pre => Status (Dev) = Open,
-     Post => Status (Dev) = Open;
+         with Pre => Status (Dev) = Open,
+         Post => Status (Dev) = Open;
 
    procedure Start_Device (Dev : in out Alsa_Device)
-     with Pre => Status (Dev) = Open,
-     Post => Status (Dev) = Running;
+         with Pre => Status (Dev) = Open,
+         Post => Status (Dev) = Running;
 
 
    type Buffer_Signed_8 is array (Natural range <>)
-     of aliased Interfaces.Integer_8;
+         of aliased Interfaces.Integer_8;
 
    type Buffer_Signed_16 is array (Natural range <>)
-     of aliased Interfaces.Integer_16;
+         of aliased Interfaces.Integer_16;
 
    type Buffer_Signed_32 is array (Natural range <>)
-     of aliased Interfaces.Integer_32;
+         of aliased Interfaces.Integer_32;
 
    type Buffer_Signed_64 is array (Natural range <>)
-     of aliased Interfaces.Integer_64;
+         of aliased Interfaces.Integer_64;
 
 
 
    type Buffer_Unsigned_8 is array (Natural range <>)
-     of aliased Interfaces.Unsigned_8;
+         of aliased Interfaces.Unsigned_8;
 
    type Buffer_Unsigned_16 is array (Natural range <>)
-     of aliased Interfaces.Unsigned_16;
+         of aliased Interfaces.Unsigned_16;
 
    type Buffer_Unsigned_32 is array (Natural range <>)
-     of aliased Interfaces.Unsigned_32;
+         of aliased Interfaces.Unsigned_32;
 
    type Buffer_Unsigned_64 is array (Natural range <>)
-     of aliased Interfaces.Unsigned_64;
+         of aliased Interfaces.Unsigned_64;
 
 
    generic
@@ -359,9 +367,9 @@ package Alsa is
    procedure Read (From : in out Alsa_Device;
                    Data : in out Data_Buffer)
 
-     with
-       Pre => Status (From) /= Closed,
-     Post => Status (From) = Running;
+         with
+               Pre => Status (From) /= Closed,
+         Post => Status (From) = Running;
 
 
    type Device_Attr is private;
@@ -401,12 +409,12 @@ private
          Rate        : Natural := 0;
          Format_Size : Natural := 0;
       end record
-     with Type_Invariant =>
-       (
-          (Status /= Closed) <= (Dev /= No_Device and Conf /= No_Config)
-        and
-          (Status = Running) <= (N_Channels > 0 and Rate > 0 and Format_Size > 0)
-       );
+         with Type_Invariant =>
+               (
+                      (Status /= Closed) <= (Dev /= No_Device and Conf /= No_Config)
+                and
+                      (Status = Running) <= (N_Channels > 0 and Rate > 0 and Format_Size > 0)
+               );
    -- Note that <= among booleans is implication, but in the reversed order
    -- that is, A <= B is false if and only if A is True and B is false.
    -- The condition above says that if Status/=Closed no field can have
@@ -459,71 +467,65 @@ private
    -- but from an implementation point of view that "and" translates into
    -- an "or" of the bitmasks...
 
-   package Hint_Pointers is
-     new Interfaces.C.Pointers (Index              => Natural,
-                                Element            => Device_Hint,
-                                Element_Array      => Device_Hint_Array,
-                                Default_Terminator => System.Null_Address);
-
-   subtype Hint_Ptr is Hint_Pointers.Pointer;
+--     subtype Hint_Ptr is Hint_Pointers.Pointer;
 
 
 
 end Alsa;
 
 --     type Sign_Type is (Sign, Unsigned, Unknown);
-   --
-   --     Signedness : constant array (Extended_Data_Format) of Sign_Type :=
-   --                    (Unknown                         => Unknown,
-   --                     Signed_8                        => Signed,
-   --                     Unsigned_8                      => Unsigned,
-   --                     Signed_16_Little_Endian         => Signed,
-   --                     Signed_16_Big_Endian            => Signed,
-   --                     Unsigned_16_Little_Endian       => Unsigned,
-   --                     Unsigned_16_Big_Endian          => Unsigned,
-   --                     Signed_24_Little_Endian         => Signed,
-   --                     Signed_24_Big_Endian            => Signed,
-   --                     Unsigned_24_Little_Endian       => Unsigned,
-   --                     Unsigned_24_Big_Endian          => Unsigned,
-   --                     Signed_32_Little_Endian         => Signed,
-   --                     Signed_32_Big_Endian            => Signed,
-   --                     Unsigned_32_Little_Endian       => Unsigned,
-   --                     Unsigned_32_Big_Endian          => Unsigned,
-   --                     Float_Little_Endian             => Signed,
-   --                     Float_Big_Endian                => Signed,
-   --                     Float_64_Little_Endian          => Signed,
-   --                     Float_64_Big_Endian             => Signed,
-   --                     Iec958_Subframe_Little_Endian   => Unknown,  -- correct me
-   --                     Iec958_Subframe_Big_Endian      => Unknown,  -- correct me
-   --                     Mu_Law                          => Unknown,  -- correct me
-   --                     A_Law                           => Unknown,  -- correct me
-   --                     Ima_Adpcm                       => Unknown,  -- correct me
-   --                     Mpeg                            => Unknown,  -- correct me
-   --                     Gsm                             => Unknown,  -- correct me
-   --                     Signed_20_Little_Endian         => Signed,
-   --                     Signed_20_Big_Endian            => Signed,
-   --                     Unsigned_20_Little_Endian       => Unsigned,
-   --                     Unsigned_20_Big_Endian          => Unsigned,
-   --                     Special                         => Unknown,
-   --                     Signed_24_3byte_Little_Endian   => Signed,
-   --                     Signed_24_3byte_Big_Endian      => Signed,
-   --                     Unsigned_24_3byte_Little_Endian => Unsigned,
-   --                     Unsigned_24_3byte_Big_Endian    => Unsigned,
-   --                     Signed_20_3byte_Little_Endian   => Signed,
-   --                     Signed_20_3byte_Big_Endian      => Signed,
-   --                     Unsigned_20_3byte_Little_Endian => Unsigned,
-   --                     Unsigned_20_3byte_Big_Endian    => Unsigned,
-   --                     Signed_18_3byte_Little_Endian   => Signed,
-   --                     Signed_18_3byte_Big_Endian      => Signed,
-   --                     Unsigned_18_3byte_Little_Endian => Unsigned,
-   --                     Unsigned_18_3byte_Big_Endian    => Unsigned,
-   --                     G723_24                         => Unknown,  -- correct me
-   --                     G723_24_1b                      => Unknown,  -- correct me
-   --                     G723_40                         => Unknown,  -- correct me
-   --                     G723_40_1b                      => Unknown,  -- correct me
-   --                     Dsd_U8                          => Unsigned,
-   --                     Dsd_U16_Little_Endian           => Unsigned,
-   --                     Dsd_U32_Little_Endian           => Unsigned,
-   --                     Dsd_U16_Big_Endian              => Unsigned,
-   --                     Dsd_U32_Big_Endian              => Unsigned);
+--
+--     Signedness : constant array (Extended_Data_Format) of Sign_Type :=
+--                    (Unknown                         => Unknown,
+--                     Signed_8                        => Signed,
+--                     Unsigned_8                      => Unsigned,
+--                     Signed_16_Little_Endian         => Signed,
+--                     Signed_16_Big_Endian            => Signed,
+--                     Unsigned_16_Little_Endian       => Unsigned,
+--                     Unsigned_16_Big_Endian          => Unsigned,
+--                     Signed_24_Little_Endian         => Signed,
+--                     Signed_24_Big_Endian            => Signed,
+--                     Unsigned_24_Little_Endian       => Unsigned,
+--                     Unsigned_24_Big_Endian          => Unsigned,
+--                     Signed_32_Little_Endian         => Signed,
+--                     Signed_32_Big_Endian            => Signed,
+--                     Unsigned_32_Little_Endian       => Unsigned,
+--                     Unsigned_32_Big_Endian          => Unsigned,
+--                     Float_Little_Endian             => Signed,
+--                     Float_Big_Endian                => Signed,
+--                     Float_64_Little_Endian          => Signed,
+--                     Float_64_Big_Endian             => Signed,
+--                     Iec958_Subframe_Little_Endian   => Unknown,  -- correct me
+--                     Iec958_Subframe_Big_Endian      => Unknown,  -- correct me
+--                     Mu_Law                          => Unknown,  -- correct me
+--                     A_Law                           => Unknown,  -- correct me
+--                     Ima_Adpcm                       => Unknown,  -- correct me
+--                     Mpeg                            => Unknown,  -- correct me
+--                     Gsm                             => Unknown,  -- correct me
+--                     Signed_20_Little_Endian         => Signed,
+--                     Signed_20_Big_Endian            => Signed,
+--                     Unsigned_20_Little_Endian       => Unsigned,
+--                     Unsigned_20_Big_Endian          => Unsigned,
+--                     Special                         => Unknown,
+--                     Signed_24_3byte_Little_Endian   => Signed,
+--                     Signed_24_3byte_Big_Endian      => Signed,
+--                     Unsigned_24_3byte_Little_Endian => Unsigned,
+--                     Unsigned_24_3byte_Big_Endian    => Unsigned,
+--                     Signed_20_3byte_Little_Endian   => Signed,
+--                     Signed_20_3byte_Big_Endian      => Signed,
+--                     Unsigned_20_3byte_Little_Endian => Unsigned,
+--                     Unsigned_20_3byte_Big_Endian    => Unsigned,
+--                     Signed_18_3byte_Little_Endian   => Signed,
+--                     Signed_18_3byte_Big_Endian      => Signed,
+--                     Unsigned_18_3byte_Little_Endian => Unsigned,
+--                     Unsigned_18_3byte_Big_Endian    => Unsigned,
+--                     G723_24                         => Unknown,  -- correct me
+--                     G723_24_1b                      => Unknown,  -- correct me
+--                     G723_40                         => Unknown,  -- correct me
+--                     G723_40_1b                      => Unknown,  -- correct me
+--                     Dsd_U8                          => Unsigned,
+--                     Dsd_U16_Little_Endian           => Unsigned,
+--                     Dsd_U32_Little_Endian           => Unsigned,
+--                     Dsd_U16_Big_Endian              => Unsigned,
+--                     Dsd_U32_Big_Endian              => Unsigned);
 

@@ -3,28 +3,30 @@ with Interfaces.C.Strings; use Interfaces.C.Strings;
 private package Alsa.Thin is
    use Interfaces.C;
 
+   type Rounding_Direction is new Int range -1 .. 1;
+
    function Snd_Close (Item : Pcm_Device) return Alsa_Err_Code;
    pragma Import (C, Snd_Close, "snd_pcm_close");
 
    function Get_Channels (Param  : Configuration_Space;
-                          Result : access Unsigned)
+                          Result : out Unsigned)
                           return Alsa_Err_Code;
 
    pragma Import (C, Get_Channels, "snd_pcm_hw_params_get_channels");
 
    function Get_Min_Channels (Param  : Configuration_Space;
-                              Result : access Unsigned)
+                              Result : out Unsigned)
                               return Alsa_Err_Code;
 
    pragma Import (C, Get_Min_Channels, "snd_pcm_hw_params_get_channels_min");
 
    function Get_Max_Channels (Param  : Configuration_Space;
-                              Result : access Unsigned)
+                              Result : out Unsigned)
                               return Alsa_Err_Code;
 
    pragma Import (C, Get_Max_Channels, "snd_pcm_hw_params_get_channels_max");
 
-   function New_HW_Parameters (Ptr : access Configuration_Space)
+   function New_HW_Parameters (Ptr : out Configuration_Space)
                                return Alsa_Err_Code;
    pragma Import (C, New_HW_Parameters, "snd_pcm_hw_params_malloc");
 
@@ -49,25 +51,25 @@ private package Alsa.Thin is
 
 
    function Get_Rate (Params : Configuration_Space;
-                      Result : access Unsigned;
-                      Dir    : access Int)
+                      Result : out Unsigned;
+                      Dir    : out Rounding_Direction)
                       return Alsa_Err_Code;
    pragma Import (C, Get_Rate, "snd_pcm_hw_params_get_rate");
 
    function Get_Rate_Min (Params : Configuration_Space;
-                          Result : access Unsigned;
-                          Dir    : access Int)
+                          Result : out Unsigned;
+                          Dir    : out Rounding_Direction)
                           return Alsa_Err_Code;
    pragma Import (C, Get_Rate_Min, "snd_pcm_hw_params_get_rate_min");
 
    function Get_Rate_Max (Params : Configuration_Space;
-                          Result : access Unsigned;
-                          Dir    : access Int)
+                          Result : out Unsigned;
+                          Dir    : out Rounding_Direction)
                           return Alsa_Err_Code;
    pragma Import (C, Get_Rate_Max, "snd_pcm_hw_params_get_rate_max");
 
-   function Set_Channels_Near (Dev : Pcm_Device;
-                               Params : Configuration_Space;
+   function Set_Channels_Near (Dev        : Pcm_Device;
+                               Params     : Configuration_Space;
                                N_Channels : in out Channel_Count)
                                return Alsa_Err_Code;
 
@@ -83,7 +85,7 @@ private package Alsa.Thin is
    function Set_Rate_Near (Dev          : Pcm_Device;
                            Params       : Configuration_Space;
                            Desired_Rate : in out Sampling_Rate;
-                           Rounding     : in out Int)
+                           Rounding     : in out Rounding_Direction)
                            return Alsa_Err_Code;
 
    pragma Import (C, Set_Rate_Near, "snd_pcm_hw_params_set_rate_near");
@@ -99,7 +101,7 @@ private package Alsa.Thin is
                         return Alsa_Err_Code;
    pragma Import (C, Set_Access, "snd_pcm_hw_params_set_access");
 
-   function Snd_Pcm_Open (Dev       : access Pcm_Device;
+   function Snd_Pcm_Open (Dev       : in out Pcm_Device;
                           Name      : Chars_Ptr;
                           Direction : Stream_Direction;
                           Mode      : Int)
@@ -112,9 +114,6 @@ private package Alsa.Thin is
                        return Alsa_Err_Code;
 
    pragma Import (C, Alsa_Read, "snd_pcm_readi");
-
-   procedure Free (Item : Hint_Ptr);
-   pragma Import (C, Free, "snd_device_name_free_hint");
 
 
 end Alsa.Thin;

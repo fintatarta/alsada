@@ -1,5 +1,7 @@
 pragma Ada_2012;
 with Interfaces.C.Strings;
+with Interfaces.C.Pointers;
+
 with Ada.Text_IO; use Ada.Text_IO;
 pragma Warnings (Off, Ada.Text_IO);
 
@@ -20,12 +22,6 @@ package body Alsa is
                        Seq     => New_Char_Array ("seq"));
 
 
-
-   function Snd_Device_Name_Hint (Card           : Int;
-                                  Interface_Name : Chars_Ptr;
-                                  Hints          : access Hint_Ptr)
-                                  return Alsa_Err_Code;
-   pragma Import (C, Snd_Device_Name_Hint, "snd_device_name_hint");
 
    function Snd_Get_Hint (Hint : Device_Hint;
                           Id   : Chars_Ptr)
@@ -57,9 +53,9 @@ package body Alsa is
    ---------------
 
    function Get_Attrs
-     (Id   : Interface_Id;
-      Card : Card_Number := All_Cards)
-      return Attribute_Array
+         (Id   : Interface_Id;
+          Card : Card_Number := All_Cards)
+          return Attribute_Array
    is
       type Attr_Id is (Name, Descr, Direction);
 
@@ -109,20 +105,42 @@ package body Alsa is
    ----------------------
 
    function Get_Device_Hints
-     (Id   : Interface_Id;
-      Card : Card_Number := All_Cards)
-      return Device_Hint_Array
+         (Id   : Interface_Id;
+          Card : Card_Number := All_Cards)
+          return Device_Hint_Array
    is
-      Hints : aliased Hint_Ptr;
+      package Hint_Pointers is
+            new Interfaces.C.Pointers (Index              => Natural,
+                                       Element            => Device_Hint,
+                                       Element_Array      => Device_Hint_Array,
+                                       Default_Terminator => System.Null_Address);
+
+      procedure Free (Item : Hint_Pointers.Pointer);
+      pragma Import (C, Free, "snd_device_name_free_hint");
+
+
+      function Snd_Device_Name_Hint (Card           : Int;
+                                     Interface_Name : Chars_Ptr;
+                                     Hints          : out Hint_Pointers.Pointer)
+                                     return Alsa_Err_Code;
+      pragma Import (C, Snd_Device_Name_Hint, "snd_device_name_hint");
+
+      Hints : Hint_Pointers.Pointer;
       Err   : Alsa_Err_Code;
    begin
       Err := Snd_Device_Name_Hint (Card           => Int (Card),
                                    Interface_Name => Interface_Name (Id),
-                                   Hints          => Hints'Access);
+                                   Hints          => Hints);
 
       Check_And_Maybe_Die (Err);
 
-      return Hint_Pointers.Value (Hints);
+      declare
+         Result : constant Device_Hint_Array := Hint_Pointers.Value (Hints);
+      begin
+         Free (Hints);
+         return Result;
+      end;
+
    end Get_Device_Hints;
 
    ----------
@@ -137,24 +155,16 @@ package body Alsa is
 
    begin
       declare
-         Tmp : aliased Pcm_Device;
          Err : Alsa_Err_Code;
          Nm  : Chars_Ptr := New_String (String (Name));
       begin
-         Err := Thin.Snd_Pcm_Open (Tmp'Access, Nm, Direction, Int (Mode));
+         Err := Thin.Snd_Pcm_Open (Dev.Dev, Nm, Direction, Int (Mode));
          Free (Nm);
-         Dev.Dev := Tmp;
 
          Check_And_Maybe_Die (Err);
       end;
 
-      declare
-         Tmp : aliased Configuration_Space;
-      begin
-         Check_And_Maybe_Die (Thin.New_HW_Parameters (Tmp'Access));
-
-         Dev.Conf := Tmp;
-      end;
+      Check_And_Maybe_Die (Thin.New_HW_Parameters (Dev.Conf));
 
       Check_And_Maybe_Die (Thin.Export_HW_Parameters (Dev.Dev, Dev.Conf));
       Dev.Status := Open;
@@ -175,28 +185,28 @@ package body Alsa is
    -- Max_Channels --
    ------------------
 
-   function Max_Channels (Dev : Alsa_Device) return Positive
+   function Max_Channels (Dev : Alsa_Device) return Channel_Count
    is
 
-      Result : aliased Interfaces.C.Unsigned;
+      Result : Interfaces.C.Unsigned;
    begin
-      Check_And_Maybe_Die (Thin.Get_Max_Channels (Dev.Conf, Result'Access));
+      Check_And_Maybe_Die (Thin.Get_Max_Channels (Dev.Conf, Result));
 
-      return Positive (Result);
+      return Channel_Count (Result);
    end Max_Channels;
 
    ------------------
    -- Min_Channels --
    ------------------
 
-   function Min_Channels (Dev : Alsa_Device) return Positive
+   function Min_Channels (Dev : Alsa_Device) return Channel_Count
    is
 
-      Result : aliased Interfaces.C.Unsigned;
+      Result : Interfaces.C.Unsigned;
    begin
-      Check_And_Maybe_Die (Thin.Get_Min_Channels (Dev.Conf, Result'Access));
+      Check_And_Maybe_Die (Thin.Get_Min_Channels (Dev.Conf, Result));
 
-      return Positive (Result);
+      return Channel_Count (Result);
    end Min_Channels;
 
    -------------
@@ -219,24 +229,24 @@ package body Alsa is
    -- Rate_Min --
    --------------
 
-   function Rate_Min (Dev : Alsa_Device) return Positive
+   function Rate_Min (Dev : Alsa_Device) return Sampling_Rate
    is
-      Result : aliased Interfaces.C.Unsigned;
-      Junk   : aliased Int;
+      Result : Interfaces.C.Unsigned;
+      Junk   : Thin.Rounding_Direction;
    begin
-      Check_And_Maybe_Die (Thin.Get_Rate_Min (Dev.Conf, Result'Access, Junk'Access));
+      Check_And_Maybe_Die (Thin.Get_Rate_Min (Dev.Conf, Result, Junk));
 
-      return Positive (Result);
+      return Sampling_Rate (Result);
    end Rate_Min;
 
-   function Rate_Max (Dev : Alsa_Device) return Positive
+   function Rate_Max (Dev : Alsa_Device) return Sampling_Rate
    is
-      Result : aliased Interfaces.C.Unsigned;
-      Junk   : aliased Int;
+      Result  : Interfaces.C.Unsigned;
+      Ignored : Thin.Rounding_Direction;
    begin
-      Check_And_Maybe_Die (Thin.Get_Rate_Max (Dev.Conf, Result'Access, Junk'Access));
+      Check_And_Maybe_Die (Thin.Get_Rate_Max (Dev.Conf, Result, Ignored));
 
-      return Positive (Result);
+      return Sampling_Rate (Result);
    end Rate_Max;
 
 
@@ -251,14 +261,14 @@ package body Alsa is
       Dev.Status := Running;
 
       declare
-         Tmp : aliased Interfaces.C.Unsigned;
-         Dir : aliased Int;
-         Fmt : aliased Data_Format;
+         Tmp     : Interfaces.C.Unsigned;
+         Ignored : Thin.Rounding_Direction;
+         Fmt     : Data_Format;
       begin
-         Check_And_Maybe_Die (Thin.Get_Channels (Dev.Conf, Tmp'Access));
+         Check_And_Maybe_Die (Thin.Get_Channels (Dev.Conf, Tmp));
          Dev.N_Channels := Natural (Tmp);
 
-         Check_And_Maybe_Die (Thin.Get_Rate (Dev.Conf, Tmp'Access, Dir'Access));
+         Check_And_Maybe_Die (Thin.Get_Rate (Dev.Conf, Tmp, Ignored));
          Dev.Rate := Natural (Tmp);
 
          Check_And_Maybe_Die (Thin.Get_Format (Dev.Conf, Fmt));
@@ -276,7 +286,7 @@ package body Alsa is
                    Data : in out Data_Buffer)
    is
       package Convert is
-        new System.Address_To_Access_Conversions (Data_Type);
+            new System.Address_To_Access_Conversions (Data_Type);
 
       Addr : constant System.Address :=
                Convert.To_Address (Data (Data'First)'Access);
@@ -326,14 +336,14 @@ package body Alsa is
    procedure Set_Rate (Dev  : in out Alsa_Device;
                        Rate : in out Sampling_Rate)
    is
---        Rate_Tmp : aliased Interfaces.C.Unsigned := Interfaces.C.Unsigned (Rate);
-      Ignored  : Int;
+      --        Rate_Tmp : aliased Interfaces.C.Unsigned := Interfaces.C.Unsigned (Rate);
+      Ignored  : Thin.Rounding_Direction;
    begin
       Check_And_Maybe_Die (Thin.Set_Rate_Near (Dev          => Dev.Dev,
                                                Params       => Dev.Conf,
                                                Desired_Rate => Rate,
                                                Rounding     => Ignored));
---        Rate := Positive (Rate_Tmp);
+      --        Rate := Positive (Rate_Tmp);
    end Set_Rate;
 
    ----------------
